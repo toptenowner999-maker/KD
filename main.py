@@ -1,6 +1,4 @@
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-# Intents import karna zaroori hai leave message ke liye
-from telegram import Intents 
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, Intents
 from telegram.ext import (
     ApplicationBuilder, ContextTypes, ChatJoinRequestHandler,
     CommandHandler, ChatMemberHandler
@@ -12,16 +10,19 @@ from datetime import datetime
 import asyncio
 
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
-APK_URL = os.environ.get("APK_URL")
+APK_URL = os.environ.get("APK_URL") # GitHub ka RAW link dalna yaha
 VIP_CHANNEL_URL = os.environ.get("VIP_CHANNEL_URL")
 BOT_USERNAME = os.environ.get("BOT_USERNAME")
 LEAVE_MSG_URL = os.environ.get("LEAVE_MSG_URL")
 
 USERS_FILE = "users.json"
-APK_FILE = "jai_club_premium.apk" # RAM ki jagah disk par save karenge
+APK_FILE = "jai_club_premium.apk"
 
 WELCOME_IMAGE_URL = "https://kommodo.ai/i/lk66ZvAY1u3vzHXU9aLN"
 LEAVE_IMAGE_URL = "https://kommodo.ai/i/UTlTK3RUQvuCGsM1aCLS"
+
+# Yahan hum Telegram ka file_id save karenge taaki bandwidth na lage
+APK_FILE_ID = None 
 
 # ================= USERS =================
 def load_users():
@@ -47,46 +48,69 @@ def add_user(user, users):
         })
         save_users(users)
 
-# ================= APK CACHE (Storage Method) =================
+# ================= APK CACHE (From GitHub) =================
 def fetch_apk():
-    # Termux me RAM bachane ke liye direct file me download aur save
+    # Render par jab bot start hoga, sirf 1 baar GitHub se download karega
     if os.path.exists(APK_FILE):
-        print("APK already cached on disk ✅")
+        print("APK already on disk ✅")
         return
         
     try:
         if APK_URL:
-            print("Downloading APK...")
+            print("Downloading APK from GitHub once...")
             res = requests.get(APK_URL, stream=True, timeout=120)
             res.raise_for_status()
             with open(APK_FILE, 'wb') as f:
                 for chunk in res.iter_content(chunk_size=8192):
                     f.write(chunk)
-            print("APK downloaded & saved ✅")
+            print("APK downloaded & saved locally ✅")
     except Exception as e:
         print("APK error:", e)
 
-# ================= SEND APK =================
+# ================= SEND APK (Bandwidth Saver) =================
 async def send_apk(user_id, context):
-    if not os.path.exists(APK_FILE):
-        return
+    global APK_FILE_ID
 
     btn = InlineKeyboardMarkup([
         [InlineKeyboardButton("GET SECRET APK ✅", url=f"https://t.me/{BOT_USERNAME}?start=apk")]
     ])
 
-    with open(APK_FILE, 'rb') as file:
-        await context.bot.send_document(
-            chat_id=user_id,
-            document=file,
-            filename="jai club premium.apk",
-            caption=(
-                "✅ 100% BEST APK IN WHOLE TELEGRAM 💥\n\n"
-                "( ONLY FOR PREMIUM USERS ⚡️ )\n\n"
-                "FOR HELP : @KD_HACK_MANAGER"
-            ),
-            reply_markup=btn
-        )
+    caption_text = (
+        "✅ 100% BEST APK IN WHOLE TELEGRAM 💥\n\n"
+        "( ONLY FOR PREMIUM USERS ⚡️ )\n\n"
+        "FOR HELP : @KD_HACK_MANAGER"
+    )
+
+    try:
+        # MAGIC 🪄: Agar file_id already save hai, toh direct Telegram server se bhejo (0 MB Render Bandwidth used)
+        if APK_FILE_ID:
+            await context.bot.send_document(
+                chat_id=user_id,
+                document=APK_FILE_ID,
+                caption=caption_text,
+                reply_markup=btn
+            )
+            return
+
+        # Agar bot restart hua hai aur file_id nahi hai, toh 1st user ke liye Render se upload karo
+        if not os.path.exists(APK_FILE):
+            print("APK File hi nahi mili!")
+            return
+
+        with open(APK_FILE, 'rb') as file:
+            message = await context.bot.send_document(
+                chat_id=user_id,
+                document=file,
+                filename="jai club premium.apk",
+                caption=caption_text,
+                reply_markup=btn
+            )
+            # Pehli baar upload hone par jo id mili, usko save kar lo sab aage aane wale users ke liye
+            APK_FILE_ID = message.document.file_id
+            print(f"File uploaded to Telegram successfully! Cached File ID: {APK_FILE_ID}")
+
+    except Exception as e:
+        print("Error sending APK:", e)
 
 # ================= JOIN REQUEST =================
 async def join_request(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -100,7 +124,7 @@ async def join_request(update: Update, context: ContextTypes.DEFAULT_TYPE):
             [InlineKeyboardButton("🔥 VIP CHANNEL LINK 🔥", url=VIP_CHANNEL_URL)]
         ])
 
-        # Pehle user ko DM bhejo
+        # Pehle DM send kro
         await context.bot.send_photo(
             chat_id=user.id,
             photo=WELCOME_IMAGE_URL,
@@ -108,9 +132,10 @@ async def join_request(update: Update, context: ContextTypes.DEFAULT_TYPE):
             reply_markup=btn
         )
         
+        # Fir APK bhejo (Ye automatically file_id cache use karega)
         await send_apk(user.id, context)
 
-        # Uske baad request decline kardo taaki pending na rahe (accept nahi hogi)
+        # Pending clear karne ke liye decline kar do
         await update.chat_join_request.decline()
 
     except Exception as e:
@@ -135,7 +160,7 @@ async def track_leave(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
 
     except Exception as e:
-        print("Leave error:", e)
+        pass
 
 # ================= BROADCAST =================
 async def broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -172,7 +197,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 def main():
     fetch_apk()
     
-    # Intents lazmi hain member updates track karne ke liye
     intents = Intents.default()
     intents.chat_member = True
     intents.message_content = True
