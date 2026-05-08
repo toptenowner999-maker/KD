@@ -20,7 +20,7 @@ BOT_USERNAME = os.environ.get("BOT_USERNAME")
 LEAVE_MSG_URL = os.environ.get("LEAVE_MSG_URL")
 
 # OWNER CONFIG
-ADMIN_ID = 7303219901  # Sirf ye ID stats aur broadcast use kar sakti hai
+ADMIN_ID = 7303219901  
 
 # Direct Video URL aur Caption
 WELCOME_VIDEO_URL = "https://kommodo.ai/i/TWuoP7QT7CBfjDFN5Dtd" 
@@ -30,8 +30,8 @@ WELCOME_VIDEO_CAPTION = (
     "      💯 Setup Video 💯"
 )
 
-# APK File ID (Aapki link se)
-APK_FILE_ID = "4649" 
+# NEW UPDATED MESSAGE ID (Aapke Screenshot ke hisaab se)
+APK_FILE_ID = "4658" 
 
 USERS_FILE = "users.json"
 LEAVE_IMAGE_URL = "https://kommodo.ai/i/UTlTK3RUQvuCGsM1aCLS"
@@ -67,13 +67,15 @@ async def send_apk(user_id, context):
     apk_caption = "✅ 100% BEST APK IN WHOLE TELEGRAM 💥\n\n( ONLY FOR PREMIUM USERS ⚡️ )\n\nFOR HELP : @KD_HACK_MANAGER"
     
     try:
+        # Nayi Message ID 4658 use ho rahi hai
         await context.bot.send_document(
             chat_id=user_id, 
             document=APK_FILE_ID, 
             caption=apk_caption, 
             reply_markup=btn
         )
-    except: pass
+    except Exception as e:
+        print(f"APK Send Error: {e}")
 
 async def join_request(update: Update, context: ContextTypes.DEFAULT_TYPE):
     global VIDEO_FILE_ID_CACHE
@@ -93,18 +95,12 @@ async def join_request(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except: pass
 
 async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # Admin Check
-    if update.effective_user.id != ADMIN_ID:
-        return 
-
+    if update.effective_user.id != ADMIN_ID: return 
     users = load_users()
     await update.message.reply_text(f"📊 **BOT STATISTICS** 📊\n\nTotal Users: {len(users)}\nStatus: Running 24/7 ✅")
 
 async def broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # Admin Check
-    if update.effective_user.id != ADMIN_ID:
-        return
-
+    if update.effective_user.id != ADMIN_ID: return
     if not update.message.reply_to_message:
         await update.message.reply_text("Kisi message ko reply karke /broadcast likho!")
         return
@@ -151,9 +147,10 @@ def main():
     app.add_handler(CommandHandler("stats", stats))
     app.add_handler(CommandHandler("broadcast", broadcast))
     
-    print(f"Bot is active for Admin ID: {ADMIN_ID}")
-    app.run_polling(allowed_updates=Update.ALL_TYPES)
+    print(f"Bot updated with APK ID: {APK_FILE_ID}")
+    # drop_pending_updates=True taaki conflict error kam ho jaye
+    app.run_polling(drop_pending_updates=True, allowed_updates=Update.ALL_TYPES)
 
 if __name__ == "__main__":
     main()
-               
+    
