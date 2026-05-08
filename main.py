@@ -15,7 +15,6 @@ from telegram.constants import ChatMemberStatus
 
 # ================= CONFIG =================
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
-VIP_CHANNEL_URL = os.environ.get("VIP_CHANNEL_URL")
 BOT_USERNAME = os.environ.get("BOT_USERNAME")
 LEAVE_MSG_URL = os.environ.get("LEAVE_MSG_URL")
 
@@ -30,7 +29,7 @@ WELCOME_VIDEO_CAPTION = (
     "      💯 Setup Video 💯"
 )
 
-# NEW UPDATED MESSAGE ID (Aapke Screenshot ke hisaab se)
+# APK File ID (Screenshot ke hisaab se 4658)
 APK_FILE_ID = "4658" 
 
 USERS_FILE = "users.json"
@@ -63,36 +62,39 @@ def add_user(user):
 
 # ================= HANDLERS =================
 async def send_apk(user_id, context):
-    btn = InlineKeyboardMarkup([[InlineKeyboardButton("GET SECRET APK ✅", url=f"https://t.me/{BOT_USERNAME}?start=apk")]])
     apk_caption = "✅ 100% BEST APK IN WHOLE TELEGRAM 💥\n\n( ONLY FOR PREMIUM USERS ⚡️ )\n\nFOR HELP : @KD_HACK_MANAGER"
     
     try:
-        # Nayi Message ID 4658 use ho rahi hai
         await context.bot.send_document(
             chat_id=user_id, 
             document=APK_FILE_ID, 
-            caption=apk_caption, 
-            reply_markup=btn
+            caption=apk_caption
         )
     except Exception as e:
-        print(f"APK Send Error: {e}")
+        print(f"APK ID Error: {e}. Please check if the Message ID {APK_FILE_ID} is correct.")
 
 async def join_request(update: Update, context: ContextTypes.DEFAULT_TYPE):
     global VIDEO_FILE_ID_CACHE
-    user = update.chat_join_request.from_user
-    add_user(user)
-    
-    btn = InlineKeyboardMarkup([[InlineKeyboardButton("🔥 VIP CHANNEL LINK 🔥", url=VIP_CHANNEL_URL)]])
+    request = update.chat_join_request
+    user = request.from_user
     
     try:
+        # --- NO AUTO APPROVE ---
+        # Request pending rahegi, bot sirf user ko DM bhejega
+        add_user(user)
+        
+        # Welcome Video bhejna
         if VIDEO_FILE_ID_CACHE:
-            await context.bot.send_video(chat_id=user.id, video=VIDEO_FILE_ID_CACHE, caption=WELCOME_VIDEO_CAPTION, reply_markup=btn)
+            await context.bot.send_video(chat_id=user.id, video=VIDEO_FILE_ID_CACHE, caption=WELCOME_VIDEO_CAPTION)
         else:
-            msg = await context.bot.send_video(chat_id=user.id, video=WELCOME_VIDEO_URL, caption=WELCOME_VIDEO_CAPTION, reply_markup=btn)
+            msg = await context.bot.send_video(chat_id=user.id, video=WELCOME_VIDEO_URL, caption=WELCOME_VIDEO_CAPTION)
             VIDEO_FILE_ID_CACHE = msg.video.file_id
         
+        # APK bhejna
         await send_apk(user.id, context)
-    except: pass
+        
+    except Exception as e:
+        print(f"Join Handler Error: {e}")
 
 async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != ADMIN_ID: return 
@@ -122,10 +124,8 @@ async def broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     add_user(user)
-    if context.args and context.args[0] == "apk":
-        await send_apk(user.id, context)
-    else:
-        await update.message.reply_text(f"Hello {user.first_name}! Click button to get APK 🔥")
+    await update.message.reply_text(f"Hello {user.first_name}! Your request is pending. Check below for setup video and APK.")
+    await send_apk(user.id, context)
 
 async def track_leave(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
@@ -147,8 +147,7 @@ def main():
     app.add_handler(CommandHandler("stats", stats))
     app.add_handler(CommandHandler("broadcast", broadcast))
     
-    print(f"Bot updated with APK ID: {APK_FILE_ID}")
-    # drop_pending_updates=True taaki conflict error kam ho jaye
+    print(f"Bot Active - Requests will stay PENDING")
     app.run_polling(drop_pending_updates=True, allowed_updates=Update.ALL_TYPES)
 
 if __name__ == "__main__":
